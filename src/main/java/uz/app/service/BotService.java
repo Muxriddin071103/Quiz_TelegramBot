@@ -59,4 +59,5 @@ public class BotService extends TelegramLongPollingBot {
     public void executeMessages(SendPhoto sendPhoto) {
         execute(sendPhoto);
     }
+
 }

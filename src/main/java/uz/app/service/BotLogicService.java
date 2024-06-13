@@ -30,19 +30,35 @@ public class BotLogicService {
         String text = update.getMessage().getText();
 
         if (currentUser == null) {
-            users.add(new User(id.toString(), "main", new ArrayList<>(), 0, 0,null,null,null,0));
+            users.add(new User(id.toString(), "main", new ArrayList<>(), 0, 0, null, new ArrayList<>(),null,-1,0));
             currentUser = getUserById(id);
         }
 
         if (currentUser.getId().equals(adminId)) {
             if (currentUser.getAddTestStep() != null) {
-                handleAddTestCallback(currentUser, text);
+                handleTestCallback(currentUser, text);
                 return;
             }
 
             switch (text) {
                 // Admin Menu
-                case "/start" -> {
+                case QUIT -> {
+                    sendMessage.setText("Stopping bot...\n Bot stopped! Goodbye!!!");
+                    botService.executeMessages(sendMessage);
+                    System.exit(0);
+                }
+                case HELP -> {
+                    sendMessage.setText("Admin Help:\n" +
+                            "/start      -> Start the bot\n" +
+                            "ADD TEST    -> Add a new test\n" +
+                            "EDIT TEST   -> Edit an existing test\n" +
+                            "DELETE TEST -> Delete an existing test\n" +
+                            "SHOW TESTS  -> Show all tests\n" +
+                            "/stop       -> Stop the bot\n" +
+                            "/help       -> Display this help message");
+                    botService.executeMessages(sendMessage);
+                }
+                case START -> {
                     sendMessage.setText("Welcome Admin!");
                     sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
                     botService.executeMessages(sendMessage);
@@ -58,8 +74,8 @@ public class BotLogicService {
                     for (int i = 0; i < db.tests.size(); i++) {
                         testOptions.add("Question " + (i + 1));
                     }
-                    sendMessage.setReplyMarkup(replyService.keyboardMaker(new String[][]{testOptions.toArray(new String[0])}));
-                    currentUser.setAddTestStep("EDIT_TEST");
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(createTwoColumnKeyboard(testOptions)));
+                    currentUser.setAddTestStep("SELECT_EDIT_TEST");
                     botService.executeMessages(sendMessage);
                 }
                 case DELETE_TEST -> {
@@ -68,11 +84,10 @@ public class BotLogicService {
                     for (int i = 0; i < db.tests.size(); i++) {
                         deleteOptions.add("Question " + (i + 1));
                     }
-                    sendMessage.setReplyMarkup(replyService.keyboardMaker(new String[][]{deleteOptions.toArray(new String[0])}));
-                    currentUser.setAddTestStep("DELETE_TEST");
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(createTwoColumnKeyboard(deleteOptions)));
+                    currentUser.setAddTestStep("SELECT_DELETE_TEST");
                     botService.executeMessages(sendMessage);
                 }
-
                 case SHOW_TESTS -> {
                     StringBuilder testsList = new StringBuilder("Showing all tests:\n");
                     int questionNumber = 1;
@@ -95,7 +110,22 @@ public class BotLogicService {
         } else {
             // User Menu
             switch (text) {
-                case "/start" -> {
+                case QUIT -> {
+                    sendMessage.setText("Stopping bot...\n Bot stopped! Goodbye!!!");
+                    botService.executeMessages(sendMessage);
+                    System.exit(0);
+                }
+                case HELP -> {
+                    sendMessage.setText("User Help:\n" +
+                            "/start     -> Start the bot\n" +
+                            "INFO       -> Information about the bot\n" +
+                            "START TEST -> Start a new test\n" +
+                            "CONTACT US -> Contact the admin\n" +
+                            "/stop      -> Stop user commands\n" +
+                            "/help      -> Display this help message");
+                    botService.executeMessages(sendMessage);
+                }
+                case START -> {
                     sendMessage.setText("Welcome User!");
                     sendMessage.setReplyMarkup(replyService.keyboardMaker(userMenu));
                     botService.executeMessages(sendMessage);
@@ -134,7 +164,8 @@ public class BotLogicService {
                     sendNextQuestion(currentUser);
                 }
                 case CONTACT_US -> {
-                    sendMessage.setText("Please ask your question.");
+                    sendMessage.setText("Please send your message to the admin.");
+                    // Need logic to send message to admin
                     botService.executeMessages(sendMessage);
                 }
                 default -> {
@@ -145,188 +176,176 @@ public class BotLogicService {
         }
     }
 
-    private void handleAddTestCallback(User user, String response) {
-        switch (user.getAddTestStep()) {
+    private String[][] createTwoColumnKeyboard(List<String> options) {
+        int rows = (int) Math.ceil(options.size() / 2.0);
+        String[][] keyboard = new String[rows][2];
+
+        for (int i = 0; i < options.size(); i++) {
+            keyboard[i / 2][i % 2] = options.get(i);
+        }
+
+        return keyboard;
+    }
+
+    private void handleTestCallback(User currentUser, String response) {
+        SendMessage sendMessage = new SendMessage();
+        switch (currentUser.getAddTestStep()) {
             case "QUESTION":
-                user.setCurrentTestQuestion(response);
-                user.setAddTestStep("ANSWER1");
-                sendMessage.setChatId(user.getId());
+                currentUser.setCurrentTestQuestion(response);
+                currentUser.setAddTestStep("ANSWER1");
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Please enter the first answer option.");
                 botService.executeMessages(sendMessage);
                 break;
             case "ANSWER1":
-                user.getCurrentTestAnswers().add(new Answer(response, false));
-                user.setAddTestStep("ANSWER2");
-                sendMessage.setChatId(user.getId());
+                currentUser.getCurrentTestAnswers().add(new Answer(response, false));
+                currentUser.setAddTestStep("ANSWER2");
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Please enter the second answer option.");
                 botService.executeMessages(sendMessage);
                 break;
             case "ANSWER2":
-                user.getCurrentTestAnswers().add(new Answer(response, false));
-                user.setAddTestStep("ANSWER3");
-                sendMessage.setChatId(user.getId());
+                currentUser.getCurrentTestAnswers().add(new Answer(response, false));
+                currentUser.setAddTestStep("ANSWER3");
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Please enter the third answer option.");
                 botService.executeMessages(sendMessage);
                 break;
             case "ANSWER3":
-                user.getCurrentTestAnswers().add(new Answer(response, false));
-                user.setAddTestStep("ANSWER4");
-                sendMessage.setChatId(user.getId());
+                currentUser.getCurrentTestAnswers().add(new Answer(response, false));
+                currentUser.setAddTestStep("ANSWER4");
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Please enter the fourth answer option.");
                 botService.executeMessages(sendMessage);
                 break;
             case "ANSWER4":
-                user.getCurrentTestAnswers().add(new Answer(response, false));
-                user.setAddTestStep("CORRECT");
-                sendMessage.setChatId(user.getId());
+                currentUser.getCurrentTestAnswers().add(new Answer(response, false));
+                currentUser.setAddTestStep("CORRECT");
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Please specify the correct answer (1-4).");
                 botService.executeMessages(sendMessage);
                 break;
             case "CORRECT":
-                int correctIndex;
                 try {
-                    correctIndex = Integer.parseInt(response) - 1;
+                    int correctIndex = Integer.parseInt(response) - 1;
                     if (correctIndex < 0 || correctIndex > 3) {
                         throw new NumberFormatException();
                     }
+                    currentUser.getCurrentTestAnswers().get(correctIndex).setHasCorrect(true);
+                    Test newTest = new Test(currentUser.getCurrentTestQuestion(), currentUser.getCurrentTestAnswers());
+                    db.tests.add(newTest);
+                    sendMessage.setChatId(currentUser.getId());
+                    sendMessage.setText("Test added successfully!");
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
+                    botService.executeMessages(sendMessage);
+                    currentUser.resetAddTestProcess();
                 } catch (NumberFormatException e) {
-                    sendMessage.setChatId(user.getId());
+                    sendMessage.setChatId(currentUser.getId());
                     sendMessage.setText("Invalid input. Please enter a number between 1 and 4.");
                     botService.executeMessages(sendMessage);
-                    return;
-                }
-                List<Answer> answers = user.getCurrentTestAnswers();
-                answers.get(correctIndex).setHasCorrect(true);
-                Test newTest = new Test(user.getCurrentTestQuestion(), answers);
-                db.tests.add(newTest);
-                sendMessage.setChatId(user.getId());
-                sendMessage.setText("Test added successfully!");
-                sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
-                botService.executeMessages(sendMessage);
-                user.resetAddTestProcess();
-                break;
-            case "EDIT_TEST":
-                if (user.getEditingTestIndex() == -1) {
-                    // User is selecting a test to edit
-                    try {
-                        int testIndex = Integer.parseInt(response.substring("Question ".length())) - 1;
-                        if (testIndex >= 0 && testIndex < db.tests.size()) {
-                            // Valid test selection
-                            Test testToEdit = db.tests.get(testIndex);
-                            user.setEditingTestIndex(testIndex);
-                            user.setAddTestStep("EDIT_QUESTION");
-
-                            // Prepare a message to edit the question and answers
-                            StringBuilder editMessage = new StringBuilder();
-                            editMessage.append("Current question: ").append(testToEdit.getQuestion()).append("\n");
-                            editMessage.append("Current answers:\n");
-                            for (int i = 0; i < testToEdit.getAnswers().size(); i++) {
-                                editMessage.append(i + 1).append(". ").append(testToEdit.getAnswers().get(i).getVariant()).append("\n");
-                            }
-                            editMessage.append("\nPlease enter the updated question:");
-
-                            sendMessage.setChatId(user.getId());
-                            sendMessage.setText(editMessage.toString());
-                            botService.executeMessages(sendMessage);
-                        } else {
-                            // Invalid test selection
-                            sendMessage.setText("Invalid test selection.");
-                            botService.executeMessages(sendMessage);
-                        }
-                    } catch (NumberFormatException | IndexOutOfBoundsException e) {
-                        // Invalid input format
-                        sendMessage.setText("Invalid test selection.");
-                        botService.executeMessages(sendMessage);
-                    }
-                } else if (user.getAddTestStep().equals("EDIT_QUESTION")) {
-                    // User is editing the question
-                    user.setCurrentTestQuestion(response);
-                    user.setAddTestStep("EDIT_ANSWER1");
-
-                    sendMessage.setChatId(user.getId());
-                    sendMessage.setText("Please enter the first answer option.");
-                    botService.executeMessages(sendMessage);
-                } else if (user.getAddTestStep().startsWith("EDIT_ANSWER")) {
-                    // User is editing the answers
-                    try {
-                        int answerIndex = Integer.parseInt(user.getAddTestStep().substring("EDIT_ANSWER".length())) - 1;
-                        List<Answer> currentAnswers = user.getCurrentTestAnswers();
-
-                        // Update current answer
-                        currentAnswers.get(answerIndex).setVariant(response);
-
-                        // Move to next answer or finish editing
-                        int nextAnswerIndex = answerIndex + 1;
-                        if (nextAnswerIndex < 4) {
-                            user.setAddTestStep("EDIT_ANSWER" + (nextAnswerIndex + 1));
-                            sendMessage.setChatId(user.getId());
-                            sendMessage.setText("Please enter answer option " + (nextAnswerIndex + 1) + ".");
-                            botService.executeMessages(sendMessage);
-                        } else {
-                            user.setAddTestStep("EDIT_CORRECT");
-                            sendMessage.setChatId(user.getId());
-                            sendMessage.setText("Please specify the correct answer (1-4).");
-                            botService.executeMessages(sendMessage);
-                        }
-                    } catch (NumberFormatException | IndexOutOfBoundsException e) {
-                        // Invalid input format
-                        sendMessage.setText("Invalid input for answer option number. Please enter a valid number.");
-                        botService.executeMessages(sendMessage);
-                    }
-                } else if (user.getAddTestStep().equals("EDIT_CORRECT")) {
-                    // User is specifying the correct answer
-                    try {
-                        int correctIndex1 = Integer.parseInt(response) - 1;
-                        if (correctIndex1 < 0 || correctIndex1 > 3) {
-                            throw new NumberFormatException();
-                        }
-
-                        List<Answer> currentAnswers = user.getCurrentTestAnswers();
-                        for (int i = 0; i < currentAnswers.size(); i++) {
-                            currentAnswers.get(i).setHasCorrect(i == correctIndex1);
-                        }
-
-                        // Update test in database
-                        int editingIndex = user.getEditingTestIndex();
-                        Test editedTest = db.tests.get(editingIndex);
-                        editedTest.setQuestion(user.getCurrentTestQuestion());
-                        editedTest.setAnswers(currentAnswers);
-
-                        sendMessage.setChatId(user.getId());
-                        sendMessage.setText("Test updated successfully!");
-                        sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
-                        botService.executeMessages(sendMessage);
-
-                        // Reset edit state
-                        user.resetAddTestProcess();
-                        user.setEditingTestIndex(-1);
-                    } catch (NumberFormatException e) {
-                        // Invalid input for correct answer
-                        sendMessage.setText("Invalid input. Please enter a number between 1 and 4.");
-                        botService.executeMessages(sendMessage);
-                    }
                 }
                 break;
-            case "DELETE_TEST":
+            case "SELECT_EDIT_TEST":
                 try {
-                    int testIndex = Integer.parseInt(response.substring("Question ".length())) - 1;
-                    if (testIndex >= 0 && testIndex < db.tests.size()) {
-                        Test deletedTest = db.tests.remove(testIndex);
-                        sendMessage.setChatId(user.getId());
-                        sendMessage.setText("Test \"" + deletedTest.getQuestion() + "\" deleted successfully!");
-                        sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
+                    int selectedTestIndex = Integer.parseInt(response.split(" ")[1]) - 1;
+                    if (selectedTestIndex >= 0 && selectedTestIndex < db.tests.size()) {
+                        currentUser.setCurrentTestQuestion(db.tests.get(selectedTestIndex).getQuestion());
+                        currentUser.setCurrentTestAnswers(new ArrayList<>(db.tests.get(selectedTestIndex).getAnswers()));
+                        currentUser.setAddTestStep("EDIT_QUESTION");
+                        currentUser.setEditingTestIndex(selectedTestIndex);
+                        sendMessage.setChatId(currentUser.getId());
+                        sendMessage.setText("Editing Test - Please enter the new question:");
                         botService.executeMessages(sendMessage);
                     } else {
-                        sendMessage.setText("Invalid test selection.");
-                        botService.executeMessages(sendMessage);
+                        throw new IndexOutOfBoundsException();
                     }
-                } catch (NumberFormatException | IndexOutOfBoundsException e) {
-                    sendMessage.setText("Invalid test selection.");
+                } catch (Exception e) {
+                    sendMessage.setChatId(currentUser.getId());
+                    sendMessage.setText("Invalid selection. Please select a valid test.");
+                    botService.executeMessages(sendMessage);
+                }
+                break;
+            case "EDIT_QUESTION":
+                currentUser.setCurrentTestQuestion(response);
+                currentUser.setAddTestStep("EDIT_ANSWER1");
+                sendMessage.setChatId(currentUser.getId());
+                sendMessage.setText("Please enter the new first answer option.");
+                botService.executeMessages(sendMessage);
+                break;
+            case "EDIT_ANSWER1":
+                currentUser.getCurrentTestAnswers().set(0, new Answer(response, currentUser.getCurrentTestAnswers().get(0).getHasCorrect()));
+                currentUser.setAddTestStep("EDIT_ANSWER2");
+                sendMessage.setChatId(currentUser.getId());
+                sendMessage.setText("Please enter the new second answer option.");
+                botService.executeMessages(sendMessage);
+                break;
+            case "EDIT_ANSWER2":
+                currentUser.getCurrentTestAnswers().set(1, new Answer(response, currentUser.getCurrentTestAnswers().get(1).getHasCorrect()));
+                currentUser.setAddTestStep("EDIT_ANSWER3");
+                sendMessage.setChatId(currentUser.getId());
+                sendMessage.setText("Please enter the new third answer option.");
+                botService.executeMessages(sendMessage);
+                break;
+            case "EDIT_ANSWER3":
+                currentUser.getCurrentTestAnswers().set(2, new Answer(response, currentUser.getCurrentTestAnswers().get(2).getHasCorrect()));
+                currentUser.setAddTestStep("EDIT_ANSWER4");
+                sendMessage.setChatId(currentUser.getId());
+                sendMessage.setText("Please enter the new fourth answer option.");
+                botService.executeMessages(sendMessage);
+                break;
+            case "EDIT_ANSWER4":
+                currentUser.getCurrentTestAnswers().set(3, new Answer(response, currentUser.getCurrentTestAnswers().get(3).getHasCorrect()));
+                currentUser.setAddTestStep("EDIT_CORRECT");
+                sendMessage.setChatId(currentUser.getId());
+                sendMessage.setText("Please specify the correct answer (1-4).");
+                botService.executeMessages(sendMessage);
+                break;
+            case "EDIT_CORRECT":
+                try {
+                    int correctAnswerIndex = Integer.parseInt(response) - 1;
+                    if (correctAnswerIndex < 0 || correctAnswerIndex > 3) {
+                        throw new NumberFormatException();
+                    }
+                    for (Answer answer : currentUser.getCurrentTestAnswers()) {
+                        answer.setHasCorrect(false);
+                    }
+                    currentUser.getCurrentTestAnswers().get(correctAnswerIndex).setHasCorrect(true);
+                    int editingTestIndex = currentUser.getEditingTestIndex();
+                    Test editingTest = db.tests.get(editingTestIndex);
+                    editingTest.setQuestion(currentUser.getCurrentTestQuestion());
+                    editingTest.setAnswers(new ArrayList<>(currentUser.getCurrentTestAnswers()));
+                    sendMessage.setChatId(currentUser.getId());
+                    sendMessage.setText("Test updated successfully!");
+                    sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
+                    botService.executeMessages(sendMessage);
+                    currentUser.resetAddTestProcess();
+                } catch (NumberFormatException e) {
+                    sendMessage.setChatId(currentUser.getId());
+                    sendMessage.setText("Invalid input. Please enter a number between 1 and 4.");
+                    botService.executeMessages(sendMessage);
+                }
+                break;
+            case "SELECT_DELETE_TEST":
+                try {
+                    int selectedTestIndex = Integer.parseInt(response.split(" ")[1]) - 1;
+                    if (selectedTestIndex >= 0 && selectedTestIndex < db.tests.size()) {
+                        db.tests.remove(selectedTestIndex);
+                        sendMessage.setChatId(currentUser.getId());
+                        sendMessage.setText("Test deleted successfully!");
+                        sendMessage.setReplyMarkup(replyService.keyboardMaker(adminMenu));
+                        botService.executeMessages(sendMessage);
+                        currentUser.resetAddTestProcess();
+                    } else {
+                        throw new IndexOutOfBoundsException();
+                    }
+                } catch (Exception e) {
+                    sendMessage.setChatId(currentUser.getId());
+                    sendMessage.setText("Invalid selection. Please select a valid test.");
                     botService.executeMessages(sendMessage);
                 }
                 break;
             default:
-                sendMessage.setChatId(user.getId());
+                sendMessage.setChatId(currentUser.getId());
                 sendMessage.setText("Unknown command. Please use the provided options.");
                 botService.executeMessages(sendMessage);
                 break;
